@@ -1,5 +1,7 @@
 import pytest
-from sparc_cli.env import validate_environment
+import os
+from unittest.mock import patch
+from sparc_cli.env import validate_environment, BEDROCK_REQUIRED_VARS
 
 def test_validate_environment():
     """Test environment validation."""
@@ -7,19 +9,24 @@ def test_validate_environment():
         provider = "anthropic"
         expert_provider = "openai"
     
-    expert_enabled, missing = validate_environment(Args())
-    assert isinstance(expert_enabled, bool)
-    assert isinstance(missing, list)
+    with patch.dict('os.environ', {
+        'ANTHROPIC_API_KEY': 'test-key',
+        'OPENAI_API_KEY': 'test-key'
+    }):
+        expert_enabled, missing = validate_environment(Args())
+        assert isinstance(expert_enabled, bool)
+        assert isinstance(missing, list)
+        assert len(missing) == 0
 
 def test_validate_environment_missing_keys():
     """Test environment validation with missing keys."""
     class Args:
-        provider = "invalid"
-        expert_provider = "invalid"
+        provider = "anthropic"
+        expert_provider = "openai"
     
-    expert_enabled, missing = validate_environment(Args())
-    assert expert_enabled is False
-    assert len(missing) > 0
+    with patch.dict('os.environ', {}, clear=True):
+        with pytest.raises(SystemExit):
+            validate_environment(Args())
 
 def test_validate_environment_openai_compatible():
     """Test environment validation for openai-compatible provider."""
@@ -27,9 +34,15 @@ def test_validate_environment_openai_compatible():
         provider = "openai-compatible"
         expert_provider = "openai"
     
-    expert_enabled, missing = validate_environment(Args())
-    assert isinstance(expert_enabled, bool)
-    assert isinstance(missing, list)
+    with patch.dict('os.environ', {
+        'OPENAI_API_KEY': 'test-key',
+        'OPENAI_API_BASE': 'test-url',
+        'EXPERT_OPENAI_API_KEY': 'test-key'
+    }):
+        expert_enabled, missing = validate_environment(Args())
+        assert isinstance(expert_enabled, bool)
+        assert isinstance(missing, list)
+        assert len(missing) == 0
 
 def test_validate_environment_expert_fallback():
     """Test expert provider fallback to base keys."""
@@ -37,6 +50,49 @@ def test_validate_environment_expert_fallback():
         provider = "anthropic"
         expert_provider = "anthropic"
     
-    expert_enabled, missing = validate_environment(Args())
-    assert isinstance(expert_enabled, bool)
-    assert isinstance(missing, list)
+    with patch.dict('os.environ', {
+        'ANTHROPIC_API_KEY': 'test-key'
+    }):
+        expert_enabled, missing = validate_environment(Args())
+        assert isinstance(expert_enabled, bool)
+        assert isinstance(missing, list)
+        assert len(missing) == 0
+
+def test_validate_environment_bedrock():
+    """Test environment validation for Bedrock provider."""
+    class Args:
+        provider = "bedrock"
+        expert_provider = "openai"
+    
+    with patch.dict('os.environ', {
+        'BEDROCK_AWS_ACCESS_KEY_ID': 'test-key',
+        'BEDROCK_AWS_SECRET_ACCESS_KEY': 'test-secret',
+        'BEDROCK_AWS_REGION': 'us-west-2',
+        'EXPERT_OPENAI_API_KEY': 'test-key'
+    }):
+        expert_enabled, missing = validate_environment(Args())
+        assert isinstance(expert_enabled, bool)
+        assert len(missing) == 0
+
+def test_validate_environment_bedrock_missing_vars():
+    """Test environment validation for Bedrock with missing variables."""
+    class Args:
+        provider = "bedrock"
+        expert_provider = "openai"
+    
+    with patch.dict('os.environ', {}, clear=True):
+        with pytest.raises(SystemExit):
+            validate_environment(Args())
+
+def test_validate_environment_bedrock_partial_vars():
+    """Test environment validation for Bedrock with partial variables."""
+    class Args:
+        provider = "bedrock"
+        expert_provider = "openai"
+    
+    with patch.dict('os.environ', {
+        'BEDROCK_AWS_ACCESS_KEY_ID': 'test-key',
+        # Missing SECRET_ACCESS_KEY and REGION
+    }):
+        with pytest.raises(SystemExit):
+            validate_environment(Args())

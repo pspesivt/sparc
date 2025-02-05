@@ -13,7 +13,7 @@ Made by rUv, cause he could.
 - **Framework Integration**: Seamlessly implements SPARC Framework's methodology for systematic software development
 - **Autonomous Capabilities**: Provides both research analysis and guided implementation with AI assistance
 - **Safety Controls**: Features human-in-the-loop controls and review mechanisms for AI actions
-- **Provider Flexibility**: Supports multiple LLM providers (Anthropic, OpenAI, OpenRouter) for diverse needs
+- **Provider Flexibility**: Supports multiple LLM providers (Anthropic, OpenAI, OpenRouter, AWS Bedrock) for diverse needs
 - **Development Workflow**: Enhances productivity through AI-assisted analysis, planning, and implementation
 - **Quantum-Coherent Analysis**: Optimizes code structure through advanced complexity analysis
 - **Consciousness Integration**: Leverages pseudo consciousness for enhanced decision-making capabilities
@@ -22,7 +22,7 @@ Made by rUv, cause he could.
 ## Core Features
 
 - Research and implementation capabilities
-- Multiple LLM provider support (Anthropic, OpenAI, OpenRouter)
+- Multiple LLM provider support (Anthropic, OpenAI, OpenRouter, AWS Bedrock)
 - Interactive chat mode
 - Human-in-the-loop interaction
 - Expert knowledge queries
@@ -88,9 +88,12 @@ Create a `.env` file in your project root with the following variables:
 
 ```bash
 # Required: At least one of these LLM provider API keys
-ANTHROPIC_API_KEY=your_anthropic_key    # Required for Claude models
+ANTHROPIC_API_KEY=your_anthropic_key    # Required for Claude models via Anthropic API
 OPENAI_API_KEY=your_openai_key          # Required for GPT models
 OPENROUTER_API_KEY=your_openrouter_key  # Required for OpenRouter
+BEDROCK_AWS_ACCESS_KEY_ID=your_aws_key      # Required for AWS Bedrock
+BEDROCK_AWS_SECRET_ACCESS_KEY=your_aws_secret  # Required for AWS Bedrock
+BEDROCK_AWS_REGION=your_aws_region          # Required for AWS Bedrock (e.g., us-west-2)
 
 # Optional: Expert knowledge configuration
 EXPERT_PROVIDER=openai                   # Default provider for expert queries (anthropic|openai|openrouter)
@@ -98,7 +101,7 @@ EXPERT_MODEL=o1-preview                  # Model to use for expert knowledge que
 
 # Optional: Default provider settings
 DEFAULT_PROVIDER=anthropic               # Default LLM provider (anthropic|openai|openrouter)
-DEFAULT_MODEL=claude-3-opus-20240229     # Default model name
+DEFAULT_MODEL=anthropic.claude-3-5-sonnet-20241022-v2:0     # Default model name
 
 # Optional: Development settings
 DEBUG=false                              # Enable debug logging
@@ -118,7 +121,7 @@ sparc -m "Your task description" [options]
 
 - `-m, --message`: The task or query to execute (required)
 - `--research-only`: Only perform research without implementation
-- `--provider`: LLM provider to use (anthropic|openai|openrouter|openai-compatible)
+- `--provider`: LLM provider to use (anthropic|openai|openrouter|openai-compatible|bedrock)
 - `--model`: Model name to use (required for non-Anthropic providers)
 - `--cowboy-mode`: Skip interactive approval for shell commands
 - `--expert-provider`: Provider for expert knowledge queries
@@ -129,6 +132,9 @@ sparc -m "Your task description" [options]
 ### Examples
 
 ```bash
+# Using AWS Bedrock with Anthropic Claude
+sparc -m "Analyze code quality" --provider bedrock --model claude-3-sonnet  # Will use anthropic.claude-3-5-sonnet-20241022-v2:0
+
 # Autonomous research analysis
 sparc -m "Analyze the security of my Flask application" --research-only
 

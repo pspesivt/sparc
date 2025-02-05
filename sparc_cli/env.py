@@ -18,7 +18,15 @@ PROVIDER_CONFIGS = {
     "openai": ProviderConfig("OPENAI_API_KEY", base_required=True),
     "openrouter": ProviderConfig("OPENROUTER_API_KEY", base_required=True),
     "openai-compatible": ProviderConfig("OPENAI_API_KEY", base_required=True),
+    "bedrock": ProviderConfig("BEDROCK_AWS_ACCESS_KEY_ID", base_required=True),
 }
+
+# Additional required environment variables for Bedrock
+BEDROCK_REQUIRED_VARS = [
+    "BEDROCK_AWS_ACCESS_KEY_ID",
+    "BEDROCK_AWS_SECRET_ACCESS_KEY",
+    "BEDROCK_AWS_REGION"
+]
 
 def validate_environment(args) -> Tuple[bool, List[str]]:
     """Validate required environment variables and dependencies.
@@ -49,6 +57,12 @@ def validate_environment(args) -> Tuple[bool, List[str]]:
     # Special case for openai-compatible needing base URL
     if provider == "openai-compatible" and not os.environ.get('OPENAI_API_BASE'):
         missing.append('OPENAI_API_BASE environment variable is not set')
+        
+    # Special case for bedrock needing additional AWS credentials
+    if provider == "bedrock":
+        for var in BEDROCK_REQUIRED_VARS:
+            if not os.environ.get(var):
+                missing.append(f'{var} environment variable is not set')
 
     expert_missing = []
     if expert_provider in PROVIDER_CONFIGS:

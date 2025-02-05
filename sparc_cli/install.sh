@@ -10,24 +10,31 @@ prompt_secret() {
     local required=$2
     local current_value=${!secret_name}
     
+    local prompt_text
     if [ -n "$current_value" ]; then
-        echo "Enter value for ${secret_name} (current: ${current_value}):"
+        prompt_text="Enter value for ${secret_name} (current: ${current_value}) or press Enter to keep: "
     else
-        echo "Enter value for ${secret_name}:"
+        prompt_text="Enter value for ${secret_name} (press Enter to skip): "
     fi
     
-    read -s value
-    echo
+    # Print prompt and read input
+    printf "%s" "$prompt_text"
+    read input_value
     
-    if [ -n "$value" ]; then
-        echo "$value"
-        return 0
+    # Return the appropriate value
+    if [ -n "$input_value" ]; then
+        # Return new value if provided
+        printf "%s" "$input_value"
     elif [ -n "$current_value" ]; then
-        echo "$current_value"
-        return 0
+        # Return existing value if available
+        printf "%s" "$current_value"
     elif [ "$required" = "true" ]; then
-        echo "Error: ${secret_name} is required" >&2
+        # Error if required but no value available
+        printf "Error: %s is required\n" "$secret_name" >&2
         return 1
+    else
+        # Return empty string if optional
+        printf ""
     fi
     return 0
 }
@@ -43,34 +50,94 @@ setup_environment() {
     # Create exports file
     local exports_file="$HOME/.sparc_exports"
     
-    # Always require ANTHROPIC_API_KEY
-    while true; do
-        ANTHROPIC_API_KEY=$(prompt_secret "ANTHROPIC_API_KEY" "true")
-        if [ $? -eq 0 ] && [ -n "$ANTHROPIC_API_KEY" ]; then
-            break
-        fi
-        echo "ANTHROPIC_API_KEY is required. Please try again."
-    done
+    echo "Setting up LLM Provider Keys..."
+    echo "-----------------------------"
+    echo "Press Enter to skip any provider you don't plan to use."
+    echo
     
     # Optional keys
+    echo "Anthropic Configuration:"
+    ANTHROPIC_API_KEY=$(prompt_secret "ANTHROPIC_API_KEY" "false")
+    
+    echo
+    echo "OpenAI Configuration:"
     OPENAI_API_KEY=$(prompt_secret "OPENAI_API_KEY" "false")
+    
+    echo
+    echo "OpenRouter Configuration:"
     OPENROUTER_KEY=$(prompt_secret "OPENROUTER_KEY" "false")
+    
+    echo
+    echo "AWS Bedrock Configuration:"
+    echo "------------------------"
+    echo "If you plan to use AWS Bedrock, please provide your AWS credentials."
+    echo "Press Enter to skip if not using Bedrock."
+    echo
+    echo "AWS Region (e.g., us-west-2):"
+    BEDROCK_AWS_REGION=$(prompt_secret "BEDROCK_AWS_REGION" "false")
+    
+    if [ -n "$BEDROCK_AWS_REGION" ]; then
+        echo
+        echo "AWS Access Key ID:"
+        BEDROCK_AWS_ACCESS_KEY_ID=$(prompt_secret "BEDROCK_AWS_ACCESS_KEY_ID" "false")
+        
+        echo
+        echo "AWS Secret Access Key:"
+        BEDROCK_AWS_SECRET_ACCESS_KEY=$(prompt_secret "BEDROCK_AWS_SECRET_ACCESS_KEY" "false")
+    fi
+    
+    echo
+    echo "Other Configuration:"
+    echo "------------------"
     ENCRYPTION_KEY=$(prompt_secret "ENCRYPTION_KEY" "false")
     GEMINI_API_KEY=$(prompt_secret "GEMINI_API_KEY" "false")
     VERTEXAI_PROJECT=$(prompt_secret "VERTEXAI_PROJECT" "false")
     VERTEXAI_LOCATION=$(prompt_secret "VERTEXAI_LOCATION" "false")
     
-    # Create exports file
-    cat > "$exports_file" << EOF
-# SPARC CLI Environment Variables
-export ANTHROPIC_API_KEY='${ANTHROPIC_API_KEY}'
-export OPENAI_API_KEY='${OPENAI_API_KEY}'
-export OPENROUTER_KEY='${OPENROUTER_KEY}'
-export ENCRYPTION_KEY='${ENCRYPTION_KEY}'
-export GEMINI_API_KEY='${GEMINI_API_KEY}'
-export VERTEXAI_PROJECT='${VERTEXAI_PROJECT}'
-export VERTEXAI_LOCATION='${VERTEXAI_LOCATION}'
-EOF
+    # Create exports file with only non-empty values
+    {
+        echo "# SPARC CLI Environment Variables"
+        echo
+        
+        # LLM Provider Keys section
+        local has_llm_keys=false
+        if [ -n "$ANTHROPIC_API_KEY" ] || [ -n "$OPENAI_API_KEY" ] || [ -n "$OPENROUTER_KEY" ]; then
+            echo "# LLM Provider Keys"
+            [ -n "$ANTHROPIC_API_KEY" ] && echo "export ANTHROPIC_API_KEY='$ANTHROPIC_API_KEY'"
+            [ -n "$OPENAI_API_KEY" ] && echo "export OPENAI_API_KEY='$OPENAI_API_KEY'"
+            [ -n "$OPENROUTER_KEY" ] && echo "export OPENROUTER_KEY='$OPENROUTER_KEY'"
+            echo
+            has_llm_keys=true
+        fi
+        
+        # AWS Bedrock Configuration section
+        local has_bedrock=false
+        if [ -n "$BEDROCK_AWS_ACCESS_KEY_ID" ] || [ -n "$BEDROCK_AWS_SECRET_ACCESS_KEY" ] || [ -n "$BEDROCK_AWS_REGION" ]; then
+            echo "# AWS Bedrock Configuration"
+            [ -n "$BEDROCK_AWS_ACCESS_KEY_ID" ] && echo "export BEDROCK_AWS_ACCESS_KEY_ID='$BEDROCK_AWS_ACCESS_KEY_ID'"
+            [ -n "$BEDROCK_AWS_SECRET_ACCESS_KEY" ] && echo "export BEDROCK_AWS_SECRET_ACCESS_KEY='$BEDROCK_AWS_SECRET_ACCESS_KEY'"
+            [ -n "$BEDROCK_AWS_REGION" ] && echo "export BEDROCK_AWS_REGION='$BEDROCK_AWS_REGION'"
+            echo
+            has_bedrock=true
+        fi
+        
+        # Other Configuration section
+        local has_other=false
+        if [ -n "$ENCRYPTION_KEY" ] || [ -n "$GEMINI_API_KEY" ] || [ -n "$VERTEXAI_PROJECT" ] || [ -n "$VERTEXAI_LOCATION" ]; then
+            echo "# Other Configuration"
+            [ -n "$ENCRYPTION_KEY" ] && echo "export ENCRYPTION_KEY='$ENCRYPTION_KEY'"
+            [ -n "$GEMINI_API_KEY" ] && echo "export GEMINI_API_KEY='$GEMINI_API_KEY'"
+            [ -n "$VERTEXAI_PROJECT" ] && echo "export VERTEXAI_PROJECT='$VERTEXAI_PROJECT'"
+            [ -n "$VERTEXAI_LOCATION" ] && echo "export VERTEXAI_LOCATION='$VERTEXAI_LOCATION'"
+            has_other=true
+        fi
+        
+        # Add a note if no values were provided
+        if [ "$has_llm_keys" = false ] && [ "$has_bedrock" = false ] && [ "$has_other" = false ]; then
+            echo "# No configuration values provided"
+            echo "# Run ./install.sh again to configure providers"
+        fi
+    } > "$exports_file"
     
     # Make exports file executable
     chmod +x "$exports_file"
@@ -116,15 +183,23 @@ install_local() {
     
     # Install dependencies
     echo "Installing Python dependencies..."
-    pip3 install -e .
+    pip3 install --upgrade pip
+    
+    # Install in development mode with all dependencies
+    echo "Installing SPARC CLI in development mode..."
+    cd "$(dirname "$0")/.." && pip3 install -e ".[dev]"
     
     # Install Playwright browsers
     echo "Installing Playwright browsers..."
-    playwright install
+    python3 -m playwright install
+    
+    # Create an empty __init__.py if it doesn't exist
+    touch "$(dirname "$0")/__init__.py"
     
     echo
     echo "Local installation complete!"
-    echo "Run 'sparc' to start using the CLI"
+    echo "Run 'which sparc' to verify installation"
+    echo "Then run 'sparc --help' to see available commands"
 }
 
 # Function to install Docker version

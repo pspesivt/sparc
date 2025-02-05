@@ -57,8 +57,8 @@ Examples:
         '--provider',
         type=str,
         default='anthropic',
-        choices=['anthropic', 'openai', 'openrouter', 'openai-compatible'],
-        help='The LLM provider to use'
+        choices=['anthropic', 'openai', 'openrouter', 'openai-compatible', 'bedrock'],
+        help='The LLM provider to use (anthropic, openai, openrouter, openai-compatible, bedrock)'
     )
     parser.add_argument(
         '--model',
@@ -74,7 +74,7 @@ Examples:
         '--expert-provider',
         type=str,
         default='openai',
-        choices=['anthropic', 'openai', 'openrouter', 'openai-compatible'],
+        choices=['anthropic', 'openai', 'openrouter', 'openai-compatible', 'bedrock'],
         help='The LLM provider to use for expert knowledge queries (default: openai)'
     )
     parser.add_argument(
